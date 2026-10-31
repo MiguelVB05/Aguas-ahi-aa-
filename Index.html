@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡Aguas Ahí! - Plataforma de Gestión de Pipas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase App y Firestore SDKs (Compat v10) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Header / Navbar Principal -->
+    <header class="bg-blue-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white text-blue-600 p-2 rounded-xl shadow-inner font-bold text-xl flex items-center justify-center w-10 h-10">
+                    <i class="fa-solid fa-droplet"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">¡Aguas Ahí!</h1>
+                    <p class="text-xs text-blue-100">Gestión y Auditoría Hídrica</p>
+                </div>
+            </div>
+
+            <!-- Selector de Roles -->
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-medium hidden sm:inline text-blue-100">Cambiar Vista:</span>
+                <select id="roleSelector" onchange="switchRole(this.value)" class="bg-blue-700 text-white text-xs sm:text-sm font-medium px-3 py-1.5 rounded-lg border border-blue-500 focus:outline-none focus:ring-2 focus:ring-white">
+                    <option value="citizen">👤 Ciudadano</option>
+                    <option value="operator">🚚 Operador de Pipa</option>
+                    <option value="admin">📊 Administrador / Auditor</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal de Vistas -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6">
+
+        <!-- ================= VISTA CIUDADANO ================= -->
+        <div id="view-citizen" class="space-y-6">
+            <div class="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                <div class="relative z-10">
+                    <span class="bg-blue-400 text-blue-950 text-xs font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider">Servicio Bajo Demanda</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold mt-2">¿Sin suministro en tu red?</h2>
+                    <p class="text-blue-100 text-sm mt-1 max-w-xl">Solicita una pipa o arma una <span class="font-bold text-amber-300">"Vaquita" vecinal</span> para dividir costos y volumen entre vecinos.</p>
+                    <div class="flex flex-wrap gap-3 mt-4">
+                        <button onclick="openRequestModal()" class="bg-white text-blue-600 font-semibold px-5 py-2.5 rounded-xl shadow hover:bg-blue-50 transition transform active:scale-95 text-sm flex items-center space-x-2">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            <span>Pedir Pipa Individual</span>
+                        </button>
+                        <button onclick="openVaquitaModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold px-5 py-2.5 rounded-xl shadow transition transform active:scale-95 text-sm flex items-center space-x-2">
+                            <i class="fa-solid fa-people-group"></i>
+                            <span>🤝 Armar "Vaquita" Vecinal</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Listado en Tiempo Real conectado a Firebase -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <h3 class="font-bold text-lg text-slate-800 mb-4">Solicitudes Activas en la Nube (Firestore)</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-400 text-xs uppercase">
+                                <th class="p-3">Folio</th>
+                                <th class="p-3">Tipo</th>
+                                <th class="p-3">Colonia / Destino</th>
+                                <th class="p-3">Volumen</th>
+                                <th class="p-3">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaSolicitudesCloud" class="divide-y divide-slate-100 text-sm">
+                            <tr><td colspan="5" class="p-4 text-center text-slate-400">Conectando con Firebase...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= VISTA OPERADOR DE PIPA ================= -->
+        <div id="view-operator" class="space-y-6 hidden">
+            <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                <div>
+                    <span class="bg-amber-500 text-slate-950 text-xs font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider">Modo Operador Activo</span>
+                    <h2 class="text-2xl font-bold mt-2">Unidad #04 - Ford F-450</h2>
+                    <p class="text-slate-400 text-sm mt-1">Nivel actual de cisterna: <span class="text-emerald-400 font-bold">85% (8,500 L / 10,000 L)</span></p>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
+                <h3 class="font-bold text-lg text-slate-800">Panel de Control de Operador</h3>
+                <p class="text-sm text-slate-600">Aquí puedes validar entregas mediante escaneo de códigos QR registrados en la base de datos.</p>
+                <button onclick="openScanModal()" class="bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition">
+                    <i class="fa-solid fa-qrcode mr-2"></i>Escanear QR de Entrega
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= VISTA ADMINISTRADOR / AUDITOR ================= -->
+        <div id="view-admin" class="space-y-6 hidden">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs text-slate-400 font-medium uppercase">Pipas Activas</p>
+                    <p class="text-2xl font-bold text-slate-800 mt-1">42</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs text-slate-400 font-medium uppercase">"Vaquitas" Hoy</p>
+                    <p class="text-2xl font-bold text-amber-600 mt-1">84</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modales -->
+    <div id="requestModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-lg text-slate-800">Solicitar Pipa Individual</h3>
+                <button onclick="closeRequestModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="formPipa" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Volumen</label>
+                    <select id="volumenInput" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm">
+                        <option value="5000">5,000 Litros ($650 MXN)</option>
+                        <option value="10000">10,000 Litros ($1,200 MXN)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Colonia / Dirección</label>
+                    <input type="text" id="coloniaInput" required placeholder="Ej. Col. Americana" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-medium transition">Guardar en Firebase</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast de Notificaciones -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs sm:text-sm transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center space-x-2">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg">Acción realizada con éxito</span>
+    </div>
+  
+        // ================= CONFIGURACIÓN DE FIREBASE =================
+     <script type="module">
+  // Import the functions you need from the SDKs you need
+     import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+     import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+      const firebaseConfig = {
+        apiKey: "AIzaSyAq6MMP53XSm5l_NCzM5IrSXBm6m6hz2Zk",
+        authDomain: "aguas-ahi.firebaseapp.com",
+        projectId: "aguas-ahi",
+        storageBucket: "aguas-ahi.firebasestorage.app",
+        messagingSenderId: "76500470462",
+        appId: "1:76500470462:web:ea0e3b8c7913698e13ecef",
+        measurementId: "G-G912B0620R"
+      };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+
+        // Cambiar de rol en la PWA
+        function switchRole(role) {
+            document.getElementById('view-citizen').classList.add('hidden');
+            document.getElementById('view-operator').classList.add('hidden');
+            document.getElementById('view-admin').classList.add('hidden');
+
+            if (role === 'citizen') document.getElementById('view-citizen').classList.remove('hidden');
+            if (role === 'operator') document.getElementById('view-operator').classList.remove('hidden');
+            if (role === 'admin') document.getElementById('view-admin').classList.remove('hidden');
+        }
+
+        // Modales
+        function openRequestModal() { document.getElementById('requestModal').classList.remove('hidden'); }
+        function closeRequestModal() { document.getElementById('requestModal').classList.add('hidden'); }
+
+        // Guardar solicitud en Firestore desde el formulario
+        document.getElementById('formPipa').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const volumen = document.getElementById('volumenInput').value;
+            const colonia = document.getElementById('coloniaInput').value;
+            const folio = 'AGUAS-' + Math.floor(1000 + Math.random() * 9000);
+
+            try {
+                await db.collection('solicitudes_pipas').add({
+                    folio,
+                    tipo: 'Individual',
+                    colonia,
+                    volumen: Number(volumen),
+                    estado: 'En Ruta',
+                    creado: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                closeRequestModal();
+                showToast('¡Solicitud guardada en Firebase exitosamente!');
+                document.getElementById('formPipa').reset();
+            } catch (error) {
+                console.error("Error al guardar: ", error);
+                showToast('Error al conectar con la base de datos');
+            }
+        });
+
+        // Escuchar cambios en tiempo real desde Firestore
+        db.collection('solicitudes_pipas').orderBy('creado', 'desc').onSnapshot((snapshot) => {
+            const tbody = document.getElementById('tablaSolicitudesCloud');
+            tbody.innerHTML = '';
+            
+            if (snapshot.empty) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">No hay solicitudes registradas todavía.</td></tr>`;
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3 font-mono font-bold text-blue-600">${data.folio || ''}</td>
+                    <td class="p-3">${data.tipo || 'Individual'}</td>
+                    <td class="p-3">${data.colonia || ''}</td>
+                    <td class="p-3">${data.volumen ? data.volumen.toLocaleString() + ' L' : ''}</td>
+                    <td class="p-3"><span class="px-2.5 py-1 rounded-full text-xs bg-amber-100 text-amber-800 font-medium">${data.estado || 'En Ruta'}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+
+        // Toast de notificaciones
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

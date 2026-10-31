@@ -156,102 +156,116 @@
     </div>
   
         // ================= CONFIGURACIÓN DE FIREBASE =================
-     <script type="module">
-  // Import the functions you need from the SDKs you need
-     import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-     import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+         <!-- Script de Configuración y Lógica Firebase -->
+    <script>
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAq6MMP53XSm5l_NCzM5IrSXBm6m6hz2Zk",
+            authDomain: "aguas-ahi.firebaseapp.com",
+            projectId: "aguas-ahi",
+            storageBucket: "aguas-ahi.firebasestorage.app",
+            messagingSenderId: "76500470462",
+            appId: "1:76500470462:web:ea0e3b8c7913698e13ecef",
+            measurementId: "G-G912B0620R"
+        };
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-      const firebaseConfig = {
-        apiKey: "AIzaSyAq6MMP53XSm5l_NCzM5IrSXBm6m6hz2Zk",
-        authDomain: "aguas-ahi.firebaseapp.com",
-        projectId: "aguas-ahi",
-        storageBucket: "aguas-ahi.firebasestorage.app",
-        messagingSenderId: "76500470462",
-        appId: "1:76500470462:web:ea0e3b8c7913698e13ecef",
-        measurementId: "G-G912B0620R"
-      };
+        // Inicializar Firebase (Versión Compat)
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
-
-        // Cambiar de rol en la PWA
-        function switchRole(role) {
+        // 1. FUNCIÓN GLOBAL DE CAMBIO DE ROL (Para que el menú desplegable funcione)
+        window.switchRole = function(role) {
+            // Ocultar todas las vistas
             document.getElementById('view-citizen').classList.add('hidden');
             document.getElementById('view-operator').classList.add('hidden');
             document.getElementById('view-admin').classList.add('hidden');
 
-            if (role === 'citizen') document.getElementById('view-citizen').classList.remove('hidden');
-            if (role === 'operator') document.getElementById('view-operator').classList.remove('hidden');
-            if (role === 'admin') document.getElementById('view-admin').classList.remove('hidden');
-        }
+            // Mostrar la vista seleccionada
+            if (role === 'citizen') {
+                document.getElementById('view-citizen').classList.remove('hidden');
+            } else if (role === 'operator') {
+                document.getElementById('view-operator').classList.remove('hidden');
+            } else if (role === 'admin') {
+                document.getElementById('view-admin').classList.remove('hidden');
+            }
+        };
 
         // Modales
-        function openRequestModal() { document.getElementById('requestModal').classList.remove('hidden'); }
-        function closeRequestModal() { document.getElementById('requestModal').classList.add('hidden'); }
+        window.openRequestModal = function() { 
+            document.getElementById('requestModal').classList.remove('hidden'); 
+        };
+        
+        window.closeRequestModal = function() { 
+            document.getElementById('requestModal').classList.add('hidden'); 
+        };
 
         // Guardar solicitud en Firestore desde el formulario
-        document.getElementById('formPipa').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const volumen = document.getElementById('volumenInput').value;
-            const colonia = document.getElementById('coloniaInput').value;
-            const folio = 'AGUAS-' + Math.floor(1000 + Math.random() * 9000);
+        const formPipa = document.getElementById('formPipa');
+        if (formPipa) {
+            formPipa.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const volumen = document.getElementById('volumenInput').value;
+                const colonia = document.getElementById('coloniaInput').value;
+                const folio = 'AGUAS-' + Math.floor(1000 + Math.random() * 9000);
 
-            try {
-                await db.collection('solicitudes_pipas').add({
-                    folio,
-                    tipo: 'Individual',
-                    colonia,
-                    volumen: Number(volumen),
-                    estado: 'En Ruta',
-                    creado: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                closeRequestModal();
-                showToast('¡Solicitud guardada en Firebase exitosamente!');
-                document.getElementById('formPipa').reset();
-            } catch (error) {
-                console.error("Error al guardar: ", error);
-                showToast('Error al conectar con la base de datos');
-            }
-        });
+                try {
+                    await db.collection('solicitudes_pipas').add({
+                        folio,
+                        tipo: 'Individual',
+                        colonia,
+                        volumen: Number(volumen),
+                        estado: 'En Ruta',
+                        creado: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    closeRequestModal();
+                    showToast('¡Solicitud guardada en Firebase exitosamente!');
+                    formPipa.reset();
+                } catch (error) {
+                    console.error("Error al guardar: ", error);
+                    showToast('Error al conectar con la base de datos');
+                }
+            });
+        }
 
         // Escuchar cambios en tiempo real desde Firestore
-        db.collection('solicitudes_pipas').orderBy('creado', 'desc').onSnapshot((snapshot) => {
-            const tbody = document.getElementById('tablaSolicitudesCloud');
-            tbody.innerHTML = '';
-            
-            if (snapshot.empty) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">No hay solicitudes registradas todavía.</td></tr>`;
-                return;
-            }
+        const tablaCloud = document.getElementById('tablaSolicitudesCloud');
+        if (tablaCloud) {
+            db.collection('solicitudes_pipas').orderBy('creado', 'desc').onSnapshot((snapshot) => {
+                tablaCloud.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    tablaCloud.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">No hay solicitudes registradas todavía.</td></tr>`;
+                    return;
+                }
 
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="p-3 font-mono font-bold text-blue-600">${data.folio || ''}</td>
-                    <td class="p-3">${data.tipo || 'Individual'}</td>
-                    <td class="p-3">${data.colonia || ''}</td>
-                    <td class="p-3">${data.volumen ? data.volumen.toLocaleString() + ' L' : ''}</td>
-                    <td class="p-3"><span class="px-2.5 py-1 rounded-full text-xs bg-amber-100 text-amber-800 font-medium">${data.estado || 'En Ruta'}</span></td>
-                `;
-                tbody.appendChild(tr);
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="p-3 font-mono font-bold text-blue-600">${data.folio || ''}</td>
+                        <td class="p-3">${data.tipo || 'Individual'}</td>
+                        <td class="p-3">${data.colonia || ''}</td>
+                        <td class="p-3">${data.volumen ? data.volumen.toLocaleString() + ' L' : ''}</td>
+                        <td class="p-3"><span class="px-2.5 py-1 rounded-full text-xs bg-amber-100 text-amber-800 font-medium">${data.estado || 'En Ruta'}</span></td>
+                    `;
+                    tablaCloud.appendChild(tr);
+                });
             });
-        });
+        }
 
         // Toast de notificaciones
-        function showToast(msg) {
+        window.showToast = function(msg) {
             const toast = document.getElementById('toast');
-            document.getElementById('toastMsg').innerText = msg;
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
-        }
+            const toastMsg = document.getElementById('toastMsg');
+            if (toast && toastMsg) {
+                toastMsg.innerText = msg;
+                toast.classList.remove('translate-y-20', 'opacity-0');
+                setTimeout(() => {
+                    toast.classList.add('translate-y-20', 'opacity-0');
+                }, 3000);
+            }
+        };
     </script>
+
 </body>
 </html>
